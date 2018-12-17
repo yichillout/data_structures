@@ -1,4 +1,5 @@
 运行jar出现 No main manifest attribute, in XXX.jar 问题:
+
 在Linux系统下执行java -jar XXX.jar com.HelloWorld往往会提示：No main manifest attribute, in XXX.jar
 原因如下：
 正常情况下，java打包成jar包需要在MANIFEST.MF中指定Main-Class项以便运行java -jar XXX.jar时找到对应的主类。因为-jar的含义就是后面跟的jar包是有main class可独立运行，所以需要在打包成jar包时指定这个类。
@@ -6,6 +7,7 @@
 比如：java -cp XXX.jar com.HelloWorld
 
 运行jar:
+
 大家都知道一个java应用项目可以打包成一个jar，当然你必须指定一个拥有main函数的main class作为你这个jar包的程序入口。
 具体的方法是修改jar包内目录META-INF下的MANIFEST.MF文件。
 
