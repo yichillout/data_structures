@@ -1,63 +1,54 @@
-运行jar出现 No main manifest attribute, in XXX.jar 问题:
+public class Client {
+	public static void main(String[] args) throws InterruptedException {
+		System.setProperty("webdriver.chrome.driver", "/Users/jasper/Applications/chromedriver");
+		ChromeOptions chromeOptions = new ChromeOptions();
+		Dimension d = new Dimension(1920, 720);
+		WebDriver driver = new ChromeDriver(chromeOptions);
+		Actions actions = new Actions(driver);
 
-在Linux系统下执行java -jar XXX.jar com.HelloWorld往往会提示：No main manifest attribute, in XXX.jar
-原因如下：
-正常情况下，java打包成jar包需要在MANIFEST.MF中指定Main-Class项以便运行java -jar XXX.jar时找到对应的主类。因为-jar的含义就是后面跟的jar包是有main class可独立运行，所以需要在打包成jar包时指定这个类。
-如果想运行时指定想要运行的类，此时应该用-cp / --classpath来指定，命令如下：
-比如：java -cp XXX.jar com.HelloWorld
+		driver.get("https://www.amazon.com/");
+		driver.manage().timeouts().implicitlyWait(20, TimeUnit.SECONDS);
+		// driver.manage().window().maximize();
+		File src = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+		Thread.sleep(2000);
+		try {
+			FileUtils.copyFile(src, new File("a.png"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-运行jar:
+//		WebElement webElement = driver
+//				.findElement(By.xpath("//*[@id=\"g-mainbar\"]/div[1]/div/div/div/div/div/div[2]/p[18]"));
+		// actions.moveToElement(webElement).build();
 
-大家都知道一个java应用项目可以打包成一个jar，当然你必须指定一个拥有main函数的main class作为你这个jar包的程序入口。
-具体的方法是修改jar包内目录META-INF下的MANIFEST.MF文件。
+		// Screenshot fpScreenshot = new AShot().coordsProvider(new
+		// WebDriverCoordsProvider()).takeScreenshot(driver,webElement);
 
-比如有个叫做test.jar的jar包，里面有一个拥有main函数的main class：test.someClassName
+		Screenshot fpScreenshot = new AShot().shootingStrategy(ShootingStrategies.viewportPasting(1000))
+				.coordsProvider(new WebDriverCoordsProvider()).takeScreenshot(driver);
 
-我们就只要在MANIFEST.MF里面添加如下一句话：
-Main-Class: test.someClassName
-然后我们可以在控制台里输入java -jar test.jar即可以运行这个jar。
-但是我们这个项目需要引用其他第三方的jar包，在eclipse里面以项目jar包的形式引用了这个叫做some.jar的包，当时放在项目的lib子目录下，最后项目打包时把这个some.jar也打进来了，但是用java -jar执行这个test.jar的时候报找不到Class异常，原因就是jar引用不到放在自己内部的jar包。
+		// Screenshot fpScreenshot = new AShot().coordsProvider(new
+		// WebDriverCoordsProvider()).takeScreenshot(driver);
 
-那怎么办？
+		// Screenshot fpScreenshot = new AShot().takeScreenshot(driver);
 
-运行时将其加入classpath的方式行不行？就是在运行jar的同时加入classpath参数：
-java -classpath some.jar -jar test.jar
+		try {
+			ImageIO.write(fpScreenshot.getImage(), "PNG", new File("b.png"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 
-这种方式是不行的，因为使用classpath指定的jar是由AppClassloader来加载，java 命令 加了-jar 参数以后，AppClassloader就只关注test.jar范围内的class了，classpath参数失效。
+		WebDriver augmentedDriver = new Augmenter().augment(driver);
+		File screenshot = ((TakesScreenshot) augmentedDriver).getScreenshotAs(OutputType.FILE);
+		try {
+			FileUtils.copyFile(src, new File("c.png"));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		driver.quit();
 
-那该怎么引用其他的jar包呢？
-
-方法一、使用Bootstrap Classloader来加载这些类
-我们可以在运行时使用如下参数：
--Xbootclasspath:完全取代系统Java classpath.最好不用。
--Xbootclasspath/a: 在系统class加载后加载。一般用这个。
--Xbootclasspath/p: 在系统class加载前加载,注意使用，和系统类冲突就不好了.
-
-win32 java -Xbootclasspath/a: some.jar;some2.jar; -jar test.jar
-unix  java -Xbootclasspath/a: some.jar:some2.jar: -jar test.jar
-win32系统每个jar用分号隔开，unix系统下用冒号隔开
- 
-
-方法二、使用Extension Classloader来加载
-你可以把需要加载的jar都扔到%JRE_HOME%/lib/ext下面，这个目录下的jar包会在Bootstrap Classloader工作完后由Extension Classloader来加载。非常方便，非常省心。:)
-
-方法三、还是用AppClassloader来加载，不过不需要classpath参数了
-我们在MANIFEST.MF中添加如下代码：
-Class-Path: lib/some.jar
-
-lib是和test.jar同目录的一个子目录，test.jar要引用的some.jar包就在这里面。
-
-然后测试运行，一切正常！
-
-如果有多个jar包需要引用的情况：
-Class-Path: lib/some.jar lib/some2.jar
-每个单独的jar用空格隔开就可以了。注意使用相对路径。
-
-另：如果META-INF 下包含INDEX.LIST文件的话，可能会使Class-Path配置失效。INDEX.LIST是Jar打包工具打包时生成的索引文件，删除对运行不产生影响。
-
-方法四、自定义Classloader来加载
-这种方法是终极解决方案，基本上那些知名java应用都是那么干的，如tomcat、jboss等等。
-这种方式有点复杂，需要专门开贴讨论。关于ClassLoader的原理和自定义ClassLoader可以参考这篇
-
-总结:
-以上四种方法都可以用，特别是程序运行在非常单纯的环境中时。但是，如果是运行在多任务，多应用的环境中时，最好每个应用都能相互独立，第一种和第二种方案都有可能对其他应用产生影响，因此最好就是选择第三种和第四种。
+	}
+}
